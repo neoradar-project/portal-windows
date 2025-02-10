@@ -12,10 +12,10 @@
     "tsc": "yarn wsrun --collect-logs --report --stages --recursive tsc --build",
     "release": "yarn tsc && yarn lerna publish"
   },
-  "exports": {
-    "./node": "./src/node/dist/index.js",
-    "./core": "./src/core/dist/index.js",
-    "./renderer": "./src/renderer/dist/index.js"
+  "dependencies": {
+    "@portal-windows/core": "workspace:*",
+    "@portal-windows/node": "workspace:*",
+    "@portal-windows/renderer": "workspace:*"
   },
   "workspaces": {
     "packages": [
