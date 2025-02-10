@@ -55,7 +55,18 @@ export const createPortalWindowComponent = (
   log: GenericLogger,
   logIfDebug: GenericLogger
 ) => {
-  const { frameName, parentFrameName, options } = props
+  const { frameName, parentFrameName, options, onClose } = props
+
+  win.addEventListener('beforeunload', () => {
+    // Cleanup and notify parent
+    if (onClose) {
+      try {
+        onClose()
+      } catch (e) {
+        log.info('Error during close handler:', e)
+      }
+    }
+  })
 
   // TODO: find a better name for this
   // basically, it forces only one DOM to be rendered to the window
@@ -83,7 +94,6 @@ export const createPortalWindowComponent = (
     const parentWindow = useWindow()
     const ref = props.referenceElement || inPlaceRef
     const [firstDomUpdate, setFirstDomUpdate] = useState(0)
-
     useLayoutEffect(() => {
       setStyles(
         win,
@@ -296,13 +306,26 @@ export const createPortalWindowComponent = (
           setWindowInfo(frameName, { frameName: frameName, visibility: { show: false } })
         }
       }
-      parentWindow.addEventListener('beforeunload', hideWindow)
 
-      return function componentWillUnmount() {
+      // Add close handler for cleanup
+      const handleClose = () => {
         clearDebounce(firstShowDebounceId)
-        log.debug(`hiding portal window`)
-        hideWindow()
+        try {
+          hideWindow()
+        } catch (e) {
+          // Ignore IPC errors during close
+          log.info('Error during window cleanup:', e)
+        }
+      }
+
+      parentWindow.addEventListener('beforeunload', hideWindow)
+      win.addEventListener('beforeunload', handleClose)
+
+      return () => {
+        clearDebounce(firstShowDebounceId)
         parentWindow.removeEventListener('beforeunload', hideWindow)
+        win.removeEventListener('beforeunload', handleClose)
+        handleClose()
       }
     }, [])
 

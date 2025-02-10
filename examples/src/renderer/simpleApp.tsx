@@ -4,11 +4,12 @@ import {
   NewReactPortalWindow,
   RelativePosition,
   Unit,
+  useWindow,
   useWindowStore,
   windowActions,
   WindowPositionCalculationProps,
 } from '@portal-windows/renderer'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 const DEMO_FRAME_NAME = 'demo_window' as WindowFrameName
 const MAIN_FRAME_NAME = 'main_window' as WindowFrameName
@@ -70,42 +71,52 @@ const demoWindowPosition: WindowPositionCalculationProps = {
 
 // Since we know the amount of windows we're rendering here, we can create the window on app load to save time
 // (rather than creating the window when the button is clicked, which will result in a short delay)
-const DemoWindow = NewReactPortalWindow({
-  frameName: DEMO_FRAME_NAME,
-  parentFrameName: MAIN_FRAME_NAME,
-})
+
 const DemoWindowButton = () => {
-  if (!DemoWindow) {
-    // This means there was a failure to create the portal window,
-    // most likely due to missing desktop code
-    return null
+  const [parentBounds] = useWindowStore((s) => [s.windowInfo[MAIN_FRAME_NAME]?.bounds])
+  const [showWindow, setShowWindow] = useState(false) // Add state to track visibility
+  const DemoWindow = useRef<ReturnType<typeof NewReactPortalWindow>>(null)
+
+  const toggleWindowState = () => {
+    if (!DemoWindow.current) {
+      // Creating new window
+      DemoWindow.current = NewReactPortalWindow({
+        frameName: DEMO_FRAME_NAME,
+        parentFrameName: MAIN_FRAME_NAME,
+        onClose: () => {
+          setShowWindow(false)
+          DemoWindow.current = null
+        },
+      })
+      setShowWindow(true)
+    } else {
+      // Hiding/closing existing window
+      if (DemoWindow.current.win) {
+        DemoWindow.current.win.close()
+      }
+      DemoWindow.current = null
+      setShowWindow(false)
+    }
   }
 
-  // We can use windowStore to get information about windows, displays, and mouse positions.
-  // We don't need to use it for positioning logic here, but we'll be replicating the
-  // main window's size in this demo (shown below).
-  const [parentBounds] = useWindowStore((s) => [s.windowInfo[MAIN_FRAME_NAME]?.bounds])
-
-  const [showWindow, setShowWindow] = useState(false)
-  const toggleWindowState = () => setShowWindow(!showWindow)
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      if (DemoWindow.current?.win) {
+        DemoWindow.current.win.close()
+      }
+    }
+  }, [])
 
   return (
     <>
-      <button style={{ height: 40, marginBottom: 8 }} onClick={toggleWindowState}>
-        {showWindow ? 'Hide' : 'Show'} Window
-      </button>
+      <button onClick={toggleWindowState}>{showWindow ? 'Hide' : 'Show'} Window</button>
 
-      {/*
-      By passing in autoRepositionWindow, we update the demo window's position as it's being rendered
-      (as opposed to only on the first show)
-    */}
-      {showWindow && (
-        <DemoWindow.component {...demoWindowPosition}>
-          {/*
-        This div, being the first element inside the window component, will be used to calculate the size of the window.
-        By setting its width and height to its parent's bounds, and enabling `autoResizeWindowToContents` on the window component,
-        we have the demo window grow/shrink to replicate the main window's size.
-      */}
+      {showWindow && DemoWindow.current && (
+        <DemoWindow.current.component
+          {...demoWindowPosition}
+          autoResizeWindowToContents={true} // Add this if you want auto-resizing
+        >
           <div
             style={{
               backgroundColor: 'white',
@@ -115,7 +126,7 @@ const DemoWindowButton = () => {
           >
             <h1>Demo window</h1>
           </div>
-        </DemoWindow.component>
+        </DemoWindow.current.component>
       )}
     </>
   )

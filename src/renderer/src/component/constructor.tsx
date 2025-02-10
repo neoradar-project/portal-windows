@@ -16,6 +16,7 @@ export type PortalConstructorProps = {
     resizeInsteadOfHide?: boolean
   }
   windowOptionsString?: string
+  onClose?: () => void
 }
 
 export const NewReactPortalWindow = (props: PortalConstructorProps) => {

@@ -6,7 +6,16 @@
 // needed in the renderer process.
 
 import * as React from 'react'
-import * as ReactDOM from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import App from './simpleApp'
 
-ReactDOM.render(<App />, document.getElementById('react-app'))
+const rootElement = document.getElementById('react-app')
+
+if (rootElement) {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+  const root = createRoot(rootElement)
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
+  root.render(<App />)
+} else {
+  console.error("Could not find element with id 'root'")
+}

@@ -6,57 +6,82 @@ import { windowApi } from '../stores/windowStore'
 export const createPortalWindow = (props: PortalConstructorProps, _log: GenericLogger): Window => {
   const { frameName, initialMessage, windowOptionsString } = props
 
-  let win: Window | undefined = windowApi.getState().windows[frameName]
-  let canAccessWindow = false
-  try {
-    // Note: We can also use Object.getOwnPropertyNames(win.location).includes('hash')
-    // which doesn't require a try/catch, but this is clearer
-    if (win?.location.href) {
-      canAccessWindow = true
+  // Helper function to clean up window references
+  const cleanupWindow = (win?: Window) => {
+    if (win && !win.closed) {
+      try {
+        win.close()
+      } catch (e) {
+        _log.info('Failed to close window:', e)
+      }
     }
-  } catch (e) {}
-  const createWindow = !win || !canAccessWindow
-  if (createWindow) {
-    const w = window.open('', frameName, windowOptionsString || '')
-    if (!w) {
-      throw 'undefined window'
-    }
-    if (isMac) {
-      // Lets us tell windows apart by framename in dev
-      w.location.href = `about:blank?title=${encodeURIComponent(frameName)}`
-    }
-
-    win = w
-    windowApi.getState().windows[frameName] = win
-  }
-  win = win! // assert win exists
-
-  if (win.closed) {
-    throw `Portal window ${frameName} is already closed`
-  }
-
-  if (!win.portal.electronPublish || !win.portal.electronSubscribe) {
-    throw `Portal window ${frameName} does not have preload, not available on this version`
-  }
-
-  win.document.title = frameName
-  win.onclose = () => {
     delete windowApi.getState().windows[frameName]
+    props.onClose?.()
   }
-  windowApi.getState().actions.subscribeWindow(frameName, win)
 
-  let next = () => {
-    const msg: WindowInfoSetMessage = {
-      ...initialMessage,
-      zoom: 1,
-      frameName: frameName,
-    }
-    win?.portal.electronPublish(WindowIpcTopic.SET_WINDOW_INFO, {
-      ...msg,
-      onceId: 'id_' + JSON.stringify(msg, null, ''),
-    } as WindowInfoSetMessage)
+  // Clean up any existing window first
+  const existingWindow = windowApi.getState().windows[frameName]
+  if (existingWindow) {
+    cleanupWindow(existingWindow)
   }
-  windowApi.getState().actions.pingWindow(frameName).then(next, next)
+
+  // Create new window
+  const win = window.open('', frameName, windowOptionsString || '')
+  if (!win) {
+    throw 'Failed to create window'
+  }
+
+  // Set up window properties
+  if (isMac) {
+    win.location.href = `about:blank?title=${encodeURIComponent(frameName)}`
+  }
+  win.document.title = frameName
+
+  // Wait for window to be ready
+  const initializeWindow = async () => {
+    // Check if window has required APIs
+    if (!win.portal?.electronPublish || !win.portal?.electronSubscribe) {
+      cleanupWindow(win)
+      throw `Window ${frameName} does not have required APIs`
+    }
+
+    // Store window reference
+    windowApi.getState().windows[frameName] = win
+
+    // Set up close handler
+    win.onclose = () => {
+      cleanupWindow(win)
+    }
+
+    try {
+      // Subscribe window
+      await windowApi.getState().actions.subscribeWindow(frameName, win)
+      _log.debug('Subscribed window:', frameName)
+
+      // Initialize window state
+      if (!win.closed) {
+        const msg: WindowInfoSetMessage = {
+          ...initialMessage,
+          zoom: 1,
+          frameName: frameName,
+        }
+        await win.portal.electronPublish(WindowIpcTopic.SET_WINDOW_INFO, {
+          ...msg,
+          onceId: 'id_' + JSON.stringify(msg, null, ''),
+        } as WindowInfoSetMessage)
+      }
+    } catch (e) {
+      _log.info('Failed to initialize window:', e)
+      cleanupWindow(win)
+      throw e
+    }
+  }
+
+  // Initialize window and handle errors
+  initializeWindow().catch((e) => {
+    _log.info('Window initialization failed:', e)
+    cleanupWindow(win)
+  })
 
   return win
 }
