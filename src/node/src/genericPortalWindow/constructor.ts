@@ -46,9 +46,6 @@ export class GenericPortalWindow {
       skipTaskbar: true,
 
       webPreferences: {
-        contextIsolation: false,
-        enableRemoteModule: true,
-        affinity: process.platform == 'win32' ? 'tooltip' : undefined,
         preload: path.join(__dirname, `preload.js`),
         nodeIntegration: false,
       },

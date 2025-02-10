@@ -11,20 +11,19 @@
     "@portal-windows/core": "^0.1.2",
     "@portal-windows/node": "^0.1.2",
     "@portal-windows/renderer": "^0.1.2",
-    "@types/electron": "^1.6.10",
-    "@types/node": "^16.10.3",
-    "@types/react": "^17.0.19",
-    "@types/react-dom": "^17.0.9",
-    "electron": "^13.2.2",
+    "@types/node": "^20.15.1",
+    "@types/react": "^18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "electron": "^34.0.0",
     "path": "^0.12.7",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
-    "typescript": "^4.4.3"
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "typescript": "^5.3.3"
   },
   "devDependencies": {
-    "ts-loader": "^9.2.5",
-    "webpack": "^5.51.1",
-    "webpack-cli": "^4.8.0"
+    "ts-loader": "^9.5.2",
+    "webpack": "^5.97.1",
+    "webpack-cli": "^6.0.1"
   },
   "gitHead": "7d2c3d9760ea4c8bf633c0409008a10a962dfb22"
 }

@@ -33,7 +33,6 @@ export const NewReactPortalWindow = (props: PortalConstructorProps) => {
     }
     return prev
   }, {} as GenericLogger) as GenericLogger
-
   const win = createPortalWindow(props, log)
   const component = createPortalWindowComponent(props, win, log, logIfDebug)
 

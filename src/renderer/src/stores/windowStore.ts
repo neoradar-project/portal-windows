@@ -1,4 +1,5 @@
-import create, { GetState, SetState } from 'zustand'
+import { create } from 'zustand'
+import { devtools } from 'zustand/middleware'
 
 import {
   deepCompareIntersection,
@@ -14,7 +15,8 @@ import {
   WindowIpcTopic,
 } from '@portal-windows/core'
 
-export type WindowStore = {
+// Store state interface
+export interface WindowStore {
   windows: { [frameName in WindowFrameName]?: Window }
   windowToFrameName: { [windowId: string]: WindowFrameName }
   windowInfo: { [frameName in WindowFrameName]?: WindowInfoUpdateMessage }
@@ -22,68 +24,78 @@ export type WindowStore = {
   primaryDisplayId: number | undefined
   mouseInfo: MouseInfoUpdateMessage | undefined
   systemInfo: SystemInfoUpdateMessage | undefined
-
   actions: WindowActions
 }
 
 const DEBUG = false
-
 const SHOW_DEV = true
-
 const logger = loggerWithPrefix('[windowStore]')
 
 class WindowActions {
-  constructor(public set: SetState<WindowStore>, public get: GetState<WindowStore>) {}
+  private rootFrameName: WindowFrameName | null = null
 
-  rootFrameName: WindowFrameName | null = null // assuming windows with empty name are the root frame, portal windows seem to have the proper name
+  constructor(
+    private set: (fn: (state: WindowStore) => Partial<WindowStore> | WindowStore) => void,
+    private get: () => WindowStore
+  ) {}
+
   init = (frameName: WindowFrameName) => {
-    // @ts-ignore
-    if (SHOW_DEV) window['windowStore'] = this
+    if (SHOW_DEV) {
+      // @ts-ignore
+      window['windowStore'] = this
+    }
 
     this.rootFrameName = frameName
     logger.info(`WINDOWSTORE —— initializing ${frameName}`)
     this.subscribeWindow(frameName, window)
 
-    window.electronUnsubscribe(WindowIpcTopic.UPDATE_DISPLAY_INFO)
-    window.electronUnsubscribe(WindowIpcTopic.UPDATE_MOUSE_INFO)
-    window.electronUnsubscribe(WindowIpcTopic.UPDATE_SYSTEM_INFO)
+    window.portal.electronUnsubscribe(WindowIpcTopic.UPDATE_DISPLAY_INFO)
+    window.portal.electronUnsubscribe(WindowIpcTopic.UPDATE_MOUSE_INFO)
+    window.portal.electronUnsubscribe(WindowIpcTopic.UPDATE_SYSTEM_INFO)
 
     setTimeout(() => {
-      window.electronSubscribe(
+      window.portal.electronSubscribe(
         WindowIpcTopic.UPDATE_DISPLAY_INFO,
         (_, value: DisplayInfoUpdateMessage) => {
           if (DEBUG) logger.debug(`received display update on ${frameName}:`, value)
-          this.set({
-            displayInfo: value.displays.reduce((prev, curr) => {
-              prev[curr.id] = curr
-              return prev
-            }, {} as { [id: number]: Display }),
+          this.set((state) => ({
+            ...state,
+            displayInfo: value.displays.reduce(
+              (prev, curr) => ({
+                ...prev,
+                [curr.id]: curr,
+              }),
+              {} as { [id: number]: Display }
+            ),
             primaryDisplayId: value.primaryDisplayId,
-          })
+          }))
         }
       )
-      if (DEBUG) logger.info(`request display info from ${frameName}`)
-      window.electronPublish(WindowIpcTopic.REQUEST_DISPLAY_INFO)
 
-      window.electronSubscribe(
+      if (DEBUG) logger.info(`request display info from ${frameName}`)
+      window.portal.electronPublish(WindowIpcTopic.REQUEST_DISPLAY_INFO)
+
+      window.portal.electronSubscribe(
         WindowIpcTopic.UPDATE_MOUSE_INFO,
         (_, value: MouseInfoUpdateMessage) => {
           if (DEBUG) logger.debug(`received mouse update on ${frameName}:`, value)
-          this.set({ mouseInfo: value })
+          this.set((state) => ({ ...state, mouseInfo: value }))
         }
       )
-      if (DEBUG) logger.info(`request mouse info from ${frameName}`)
-      window.electronPublish(WindowIpcTopic.REQUEST_MOUSE_INFO)
 
-      window.electronSubscribe(
+      if (DEBUG) logger.info(`request mouse info from ${frameName}`)
+      window.portal.electronPublish(WindowIpcTopic.REQUEST_MOUSE_INFO)
+
+      window.portal.electronSubscribe(
         WindowIpcTopic.UPDATE_SYSTEM_INFO,
         (_, value: SystemInfoUpdateMessage) => {
           if (DEBUG) logger.debug(`received system update on ${frameName}:`, value)
-          this.set({ systemInfo: value })
+          this.set((state) => ({ ...state, systemInfo: value }))
         }
       )
+
       if (DEBUG) logger.info(`request system info from ${frameName}`)
-      window.electronPublish(WindowIpcTopic.REQUEST_SYSTEM_INFO)
+      window.portal.electronPublish(WindowIpcTopic.REQUEST_SYSTEM_INFO)
     }, 1000)
   }
 
@@ -92,9 +104,9 @@ class WindowActions {
     update: Partial<WindowInfoSetMessage>
   ) => {
     const usingFrameName = typeof winOrFrameName === 'string'
-
     let win: Window | undefined
     let frameName: WindowFrameName
+
     if (usingFrameName) {
       frameName = winOrFrameName as WindowFrameName
       win = this.get().windows[frameName]
@@ -109,21 +121,24 @@ class WindowActions {
     }
 
     if (DEBUG) logger.info(`sending update to ${frameName}:`, update)
-    win.electronPublish(WindowIpcTopic.SET_WINDOW_INFO, { ...update, frameName })
+    win.portal.electronPublish(WindowIpcTopic.SET_WINDOW_INFO, { ...update, frameName })
   }
 
   private updateWindowInfo(
     frameName: WindowFrameName,
     info: Partial<WindowInfoUpdateMessage>
   ): boolean {
-    const existingInfo = this.get().windowInfo[frameName]
+    const state = this.get()
+    const existingInfo = state.windowInfo[frameName]
+
     if (existingInfo && deepCompareIntersection(existingInfo, info)) {
       return false
     }
 
-    const newInfo = Object.assign({}, existingInfo, info)
-    this.set((s) => ({
-      windowInfo: Object.assign({}, s.windowInfo, { [frameName]: newInfo }),
+    const newInfo = { ...existingInfo, ...info }
+    this.set((state) => ({
+      ...state,
+      windowInfo: { ...state.windowInfo, [frameName]: newInfo },
     }))
 
     return true
@@ -134,15 +149,18 @@ class WindowActions {
     if (DEBUG) logger.info(`subscribed to changes from ${frameName}. Closed: ${win.closed}`)
 
     if (!proxied) {
-      this.get().windows[frameName] = win
-      win.electronUnsubscribe(WindowIpcTopic.UPDATE_WINDOW_INFO)
+      this.set((state) => ({
+        ...state,
+        windows: { ...state.windows, [frameName]: win },
+      }))
+      win.portal.electronUnsubscribe(WindowIpcTopic.UPDATE_WINDOW_INFO)
     }
 
     const requestInfo = () => {
       const requestMsg: WindowInfoRequestMessage = {
         frameName: frameName,
       }
-      win.electronPublish(WindowIpcTopic.REQUEST_WINDOW_INFO, requestMsg)
+      win.portal.electronPublish(WindowIpcTopic.REQUEST_WINDOW_INFO, requestMsg)
     }
 
     setTimeout(() => {
@@ -152,7 +170,7 @@ class WindowActions {
       }
 
       if (!proxied) {
-        win.electronSubscribe(
+        win.portal.electronSubscribe(
           WindowIpcTopic.UPDATE_WINDOW_INFO,
           (_, value: WindowInfoUpdateMessage) => {
             if (DEBUG) logger.debug(`received update to ${frameName} (${value.frameName}):`, value)
@@ -161,7 +179,7 @@ class WindowActions {
           }
         )
 
-        win.addEventListener('resize', requestInfo) // we can't subscribe to resize using cmd+/- from desktop, so we do it here
+        win.addEventListener('resize', requestInfo)
       }
 
       if (DEBUG) logger.info(`request info from ${frameName}`)
@@ -169,8 +187,7 @@ class WindowActions {
     }, 1000)
   }
 
-  /** Pings the window, proxied windows unsupported */
-  pingWindow = async (frameName: WindowFrameName) => {
+  pingWindow = async (frameName: WindowFrameName): Promise<void> => {
     return new Promise<void>((resolve, reject) => {
       const win = this.get().windows[frameName]
       if (!win) {
@@ -180,9 +197,9 @@ class WindowActions {
 
       const pong = () => {
         resolve()
-        win.electronUnsubscribe(WindowIpcTopic.UPDATE_WINDOW_INFO, pong)
+        win.portal.electronUnsubscribe(WindowIpcTopic.UPDATE_WINDOW_INFO, pong)
       }
-      win.electronSubscribe(WindowIpcTopic.UPDATE_WINDOW_INFO, pong)
+      win.portal.electronSubscribe(WindowIpcTopic.UPDATE_WINDOW_INFO, pong)
 
       setTimeout(() => {
         if (!win || win.closed) {
@@ -191,31 +208,51 @@ class WindowActions {
         }
 
         const msg: WindowInfoRequestMessage = { frameName: frameName }
-        win.electronPublish(WindowIpcTopic.REQUEST_WINDOW_INFO, msg)
+        win.portal.electronPublish(WindowIpcTopic.REQUEST_WINDOW_INFO, msg)
       }, 1000)
 
       setTimeout(() => {
         reject('ping timed out')
-        win.electronUnsubscribe(WindowIpcTopic.UPDATE_WINDOW_INFO, pong)
+        win.portal.electronUnsubscribe(WindowIpcTopic.UPDATE_WINDOW_INFO, pong)
       }, 2000)
     })
   }
 
   requestMousePosition = (win: Window) => {
-    win.electronPublish(WindowIpcTopic.REQUEST_MOUSE_INFO)
+    win.portal.electronPublish(WindowIpcTopic.REQUEST_MOUSE_INFO)
   }
 }
 
-export const [useWindowStore, windowApi] = create<WindowStore>((set, get) => ({
-  windows: {},
-  windowToFrameName: {},
-  windowInfo: {},
-  displayInfo: {},
-  primaryDisplayId: undefined,
-  mouseInfo: undefined,
-  systemInfo: undefined,
+// Create the store with middleware
+export const useWindowStore = create<WindowStore>()(
+  devtools(
+    (set, get) => ({
+      windows: {},
+      windowToFrameName: {},
+      windowInfo: {},
+      displayInfo: {},
+      primaryDisplayId: undefined,
+      mouseInfo: undefined,
+      systemInfo: undefined,
+      actions: new WindowActions(
+        (fn) => set(fn),
+        () => get()
+      ),
+    }),
+    {
+      name: 'WindowStore',
+      enabled: true,
+    }
+  )
+)
 
-  actions: new WindowActions(set, get as any),
-}))
+// Export the actions singleton
+export const windowActions = useWindowStore.getState().actions
 
-export const windowActions = windowApi.getState().actions
+// Export the store API
+export const windowApi = {
+  getState: useWindowStore.getState,
+  setState: useWindowStore.setState,
+  subscribe: useWindowStore.subscribe,
+  destroy: useWindowStore.destroy,
+}

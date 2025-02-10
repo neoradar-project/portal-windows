@@ -1,4 +1,10 @@
 import { WindowFrameName } from './consts'
+import {
+  IgnoreMouseEventsOptions,
+  ProgressBarOptions,
+  AppDetailsOptions,
+  BrowserWindow,
+} from 'electron'
 
 export type Mutable<T extends object> = {
   -readonly [K in keyof T]: T[K]
@@ -71,7 +77,7 @@ export type WindowInfoSetMessage = {
   shadow?: boolean
   mouseEvents?: {
     ignore: boolean
-    options?: Electron.IgnoreMouseEventsOptions
+    options?: IgnoreMouseEventsOptions
   }
   resizable?: boolean
   windowLevel?: {
@@ -83,7 +89,7 @@ export type WindowInfoSetMessage = {
   focusable?: boolean
 
   // properties below this line available starting in version 1.6.511
-  appDetails?: Electron.AppDetailsOptions
+  appDetails?: AppDetailsOptions
   aspectRatio?: {
     value: number
     extraSize?: Size
@@ -114,12 +120,12 @@ export type WindowInfoSetMessage = {
   opacity?: number
   progressBar?: {
     value: number
-    options: Electron.ProgressBarOptions
+    options: ProgressBarOptions
   }
   simpleFullScreen?: boolean
   skipTaskbar?: boolean
   title?: string
-  vibrancy?: FunctionArgs<InstanceType<typeof Electron.BrowserWindow>['setVibrancy']>[0]
+  vibrancy?: FunctionArgs<InstanceType<typeof BrowserWindow>['setVibrancy']>[0]
   zoom?: number
 } & WindowInfoBaseMessage
 

@@ -1,6 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import * as ReactDOM from 'react-dom'
-import { StyleSheetManager } from 'styled-components'
 
 import {
   clearDebounce,
@@ -20,6 +19,7 @@ import { WindowPositionCalculationProps } from './types'
 import { useWindow, WindowContext } from './useWindow'
 import { useUpdatedRef } from './utils'
 import { PortalConstructorProps } from './constructor'
+import { StyleSheetManager } from 'styled-components'
 
 export type PortalComponentProps = {
   referenceElement?: React.RefObject<Element>
@@ -103,7 +103,7 @@ export const createPortalWindowComponent = (
           visibility: { show: true, focus: props.takeFocus },
           windowLevel: { oldShowHack: true }, // For Windows and Linux window levels
         }
-        win.electronPublish(WindowIpcTopic.SET_WINDOW_INFO, msg)
+        win.portal.electronPublish(WindowIpcTopic.SET_WINDOW_INFO, msg)
         props.onFirstShow?.()
       }
 
@@ -123,9 +123,9 @@ export const createPortalWindowComponent = (
       const showAfterOverlaying = () => {
         show('after overlaying hid this window')
       }
-      win.electronSubscribe(WindowIpcTopic.FINISHED_OVERLAYING, showAfterOverlaying)
+      win.portal.electronSubscribe(WindowIpcTopic.FINISHED_OVERLAYING, showAfterOverlaying)
       return () => {
-        win.electronUnsubscribe(WindowIpcTopic.FINISHED_OVERLAYING, showAfterOverlaying)
+        win.portal.electronUnsubscribe(WindowIpcTopic.FINISHED_OVERLAYING, showAfterOverlaying)
       }
     }, [firstDomUpdate])
 
@@ -247,7 +247,7 @@ export const createPortalWindowComponent = (
         return
       }
 
-      ; (async () => {
+      ;(async () => {
         // @ts-ignore fonts API: https://stackoverflow.com/a/32292880
         await win?.document?.fonts?.ready
         logIfDebug.info('dom update (font load)')
@@ -334,9 +334,7 @@ export const createPortalWindowComponent = (
 
     return (
       <WindowContext.Provider value={win as Window & typeof globalThis}>
-        <div ref={inPlaceRef}>
-          {ReactDOM.createPortal(contents, win.document.body)}
-        </div>
+        <div ref={inPlaceRef}>{ReactDOM.createPortal(contents, win.document.body)}</div>
       </WindowContext.Provider>
     )
   }

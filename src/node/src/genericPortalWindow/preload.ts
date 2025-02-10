@@ -1,22 +1,17 @@
 import { ipcRenderer } from 'electron'
+import { WindowIpcTopic } from '../../../core/src/consts'
 
-import { WindowIpcTopic } from '@portal-windows/core'
-
-export function preload() {
-  window.electronPublish = (msg: WindowIpcTopic, ...args) => {
-    try {
-      ipcRenderer.send(msg, ...args)
-    } catch (e) {
-      console.warn(e)
+export const preload = {
+  electronPublish: (msg: WindowIpcTopic, ...args: any[]) => {
+    return ipcRenderer.send(msg, ...args)
+  },
+  electronSubscribe: (msg: WindowIpcTopic, callback: (...args: any[]) => void) => {
+    return ipcRenderer.on(msg, callback)
+  },
+  electronUnsubscribe: (msg: WindowIpcTopic, callback?: (...args: any[]) => void) => {
+    if (callback) {
+      return ipcRenderer.removeListener(msg, callback)
     }
-  }
-
-  window.electronSubscribe = (channel: WindowIpcTopic, listener: any) => {
-    ipcRenderer.on(channel, listener)
-  }
-
-  window.electronUnsubscribe = (channel: WindowIpcTopic, func?: (...args: any[]) => void) => {
-    if (func) ipcRenderer.removeListener(channel, func)
-    else ipcRenderer.removeAllListeners(channel)
-  }
+    return ipcRenderer.removeAllListeners(msg)
+  },
 }

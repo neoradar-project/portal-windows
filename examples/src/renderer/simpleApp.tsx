@@ -62,7 +62,7 @@ const demoWindowPosition: WindowPositionCalculationProps = {
             { value: 1, unit: Unit.PortalWindowSize },
             { value: 5, unit: Unit.Pixels },
           ],
-        }
+        },
       },
     },
   ],
@@ -100,11 +100,7 @@ const DemoWindowButton = () => {
       (as opposed to only on the first show)
     */}
       {showWindow && (
-        <DemoWindow.component
-          autoRepositionWindow
-          autoResizeWindowToContents
-          {...demoWindowPosition}
-        >
+        <DemoWindow.component {...demoWindowPosition}>
           {/*
         This div, being the first element inside the window component, will be used to calculate the size of the window.
         By setting its width and height to its parent's bounds, and enabling `autoResizeWindowToContents` on the window component,

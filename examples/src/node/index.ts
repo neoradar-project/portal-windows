@@ -19,7 +19,6 @@ function createWindow() {
     height: 600,
     width: 800,
     webPreferences: {
-      nativeWindowOpen: true, // so we can use `window.open` to create windows from the renderer
       nodeIntegration: true, // so preload can allow renderer to send messages to node
       contextIsolation: false, // so preload can allow renderer to send messages to node
       preload: path.join(__dirname, 'preload.js'),
@@ -42,28 +41,32 @@ function createWindow() {
   const genericWindowHolder: {
     [key in WindowFrameName]?: GenericPortalWindow
   } = {}
-  mainWindow.webContents.on(
-    'new-window',
-    (event, url, untypedFrameName, disposition, options, additionalFeatures) => {
-      const frameName = untypedFrameName as WindowFrameName
-      event.preventDefault()
-      genericWindowHolder[frameName] = new GenericPortalWindow()
-      event.newGuest = genericWindowHolder[frameName].init(
-        options,
-        frameName as WindowFrameName,
-        undefined,
-        {
-          frame: true,
-          acceptFirstMouse: true,
-          resizable: true,
-          hasShadow: true,
-          transparent: false,
-          titleBarStyle: 'default',
-          trafficLightPosition: { x: 100, y: 0 },
-        }
-      )
+
+  mainWindow.webContents.setWindowOpenHandler(({ frameName }) => {
+    const windowFrameName = frameName as WindowFrameName
+    genericWindowHolder[windowFrameName] = new GenericPortalWindow()
+
+    return {
+      action: 'allow',
+      createWindow: (options) => {
+        const window = genericWindowHolder[windowFrameName].init(
+          options,
+          windowFrameName,
+          undefined,
+          {
+            frame: true,
+            acceptFirstMouse: true,
+            resizable: true,
+            hasShadow: true,
+            transparent: false,
+            titleBarStyle: 'default',
+            trafficLightPosition: { x: 100, y: 0 },
+          }
+        )
+        return window.webContents
+      },
     }
-  )
+  })
 }
 
 // This method will be called when Electron has finished

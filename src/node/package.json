@@ -8,11 +8,12 @@
     "test": "jest"
   },
   "dependencies": {
-    "@sindresorhus/do-not-disturb": "^1.1.0",
-    "@types/electron": "^1.6.10",
-    "@types/node": "^16.7.1",
-    "electron": "^13.1.9",
-    "typescript": "^4.3.5"
+    "@electron-toolkit/preload": "^3.0.1",
+    "@electron/remote": "^2.1.2",
+    "@sindresorhus/do-not-disturb": "^2.1.0",
+    "@types/node": "^20.15.1",
+    "electron": "^34.0.0",
+    "typescript": "^5.3.3"
   },
   "gitHead": "7d2c3d9760ea4c8bf633c0409008a10a962dfb22",
   "publishConfig": {

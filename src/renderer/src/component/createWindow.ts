@@ -15,7 +15,6 @@ export const createPortalWindow = (props: PortalConstructorProps, _log: GenericL
       canAccessWindow = true
     }
   } catch (e) {}
-
   const createWindow = !win || !canAccessWindow
   if (createWindow) {
     const w = window.open('', frameName, windowOptionsString || '')
@@ -35,7 +34,8 @@ export const createPortalWindow = (props: PortalConstructorProps, _log: GenericL
   if (win.closed) {
     throw `Portal window ${frameName} is already closed`
   }
-  if (!win.electronPublish || !win.electronSubscribe) {
+
+  if (!win.portal.electronPublish || !win.portal.electronSubscribe) {
     throw `Portal window ${frameName} does not have preload, not available on this version`
   }
 
@@ -51,7 +51,7 @@ export const createPortalWindow = (props: PortalConstructorProps, _log: GenericL
       zoom: 1,
       frameName: frameName,
     }
-    win?.electronPublish(WindowIpcTopic.SET_WINDOW_INFO, {
+    win?.portal.electronPublish(WindowIpcTopic.SET_WINDOW_INFO, {
       ...msg,
       onceId: 'id_' + JSON.stringify(msg, null, ''),
     } as WindowInfoSetMessage)

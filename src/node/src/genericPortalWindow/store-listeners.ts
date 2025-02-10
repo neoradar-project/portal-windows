@@ -289,20 +289,25 @@ export const attachWindowStoreListener = (
           ) {
             const { capturerProps } = msg.backgroundThrottling
             if (capturerProps) {
-              // Otherwise can cause issues on Windows: https://github.com/electron/electron/issues/22670
+              // Using the newer DesktopCapturer API approach
               if (msg.backgroundThrottling.allowed) {
-                trackedWindow.webContents.incrementCapturerCount(
-                  capturerProps.size,
-                  capturerProps.stayHidden
-                )
+                // Track capturer count locally since we can't increment/decrement anymore
                 capturerCount++
+                // Set the capture behavior directly through setBackgroundThrottling
+                trackedWindow.webContents.setBackgroundThrottling(false)
               } else if (capturerCount > 0) {
-                trackedWindow.webContents.decrementCapturerCount(capturerProps.stayHidden)
                 capturerCount--
+                // If no more capturers, allow background throttling again
+                if (capturerCount === 0) {
+                  trackedWindow.webContents.setBackgroundThrottling(true)
+                }
               }
             }
 
-            trackedWindow.webContents.setBackgroundThrottling(msg.backgroundThrottling.allowed)
+            // Still set the background throttling as before for non-capturer cases
+            if (!capturerProps) {
+              trackedWindow.webContents.setBackgroundThrottling(msg.backgroundThrottling.allowed)
+            }
           }
 
           if (msg.focusable !== undefined) {
