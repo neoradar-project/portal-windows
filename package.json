@@ -13,9 +13,9 @@
     "release": "yarn tsc && yarn lerna publish"
   },
   "dependencies": {
-    "@portal-windows/core": "workspace:*",
-    "@portal-windows/node": "workspace:*",
-    "@portal-windows/renderer": "workspace:*"
+    "@portal-windows/core": "file:src/core",
+    "@portal-windows/node": "file:src/node",
+    "@portal-windows/renderer": "file:src/renderer"
   },
   "workspaces": {
     "packages": [
