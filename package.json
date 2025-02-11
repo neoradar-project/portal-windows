@@ -1,5 +1,5 @@
 {
-  "name": "portal-windows",
+  "name": "@portal-windows/monorepo",
   "version": "0.0.1",
   "description": "render a window as easy as rendering a div",
   "repository": "https://github.com/cryptagon/portal-windows",

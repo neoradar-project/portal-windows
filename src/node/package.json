@@ -4,6 +4,11 @@
   "description": "node",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neoradar-project/portal-windows.git",
+    "directory": "src/node"
+  },
   "scripts": {
     "build": "tsc --build",
     "clean": "rimraf dist",
